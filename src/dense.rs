@@ -1,3 +1,10 @@
+use std::array;
+
+use rand::{
+    Rng,
+    distr::{Distribution, StandardUniform},
+};
+
 pub struct Neuron<const SIZE: usize> {
     weights: [f64; SIZE],
     bias: f64,
@@ -16,6 +23,12 @@ impl<const SIZE: usize> Neuron<SIZE> {
             i += 1;
         }
         result
+    }
+}
+
+impl<const SIZE: usize> Distribution<Neuron<SIZE>> for StandardUniform {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Neuron<SIZE> {
+        Neuron::new(array::from_fn(|_| rng.random_range(-0.01..0.01)), 0.0)
     }
 }
 
@@ -43,6 +56,14 @@ impl<const INPUT: usize, const OUTPUT: usize> Layer<INPUT, OUTPUT> {
         input: impl IntoIterator<Item = [f64; INPUT]>,
     ) -> impl Iterator<Item = [f64; OUTPUT]> {
         input.into_iter().map(|sample| self.forward_sample(sample))
+    }
+}
+
+impl<const INPUT: usize, const OUTPUT: usize> Distribution<Layer<INPUT, OUTPUT>>
+    for StandardUniform
+{
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Layer<INPUT, OUTPUT> {
+        Layer::new(array::from_fn(|_| rng.random()))
     }
 }
 
