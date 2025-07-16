@@ -1,3 +1,5 @@
+pub mod dataset;
+
 pub struct Neuron<const SIZE: usize> {
     weights: [f64; SIZE],
     bias: f64,
@@ -52,8 +54,32 @@ const fn f64_equal(left: f64, right: f64) -> bool {
 }
 
 #[cfg(test)]
+const fn sample_equal<const SIZE: usize>(left: [f64; SIZE], right: [f64; SIZE]) -> bool {
+    let mut i = 0;
+    while i < SIZE {
+        if !f64_equal(left[i], right[i]) {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+#[cfg(test)]
+fn batch_equal<const SIZE: usize>(
+    left: impl IntoIterator<Item = [f64; SIZE]>,
+    right: impl IntoIterator<Item = [f64; SIZE]>,
+) -> bool {
+    left.into_iter().zip(right).all(|(left, right)| {
+        left.into_iter()
+            .zip(right)
+            .all(|(left, right)| f64_equal(left, right))
+    })
+}
+
+#[cfg(test)]
 mod tests {
-    use crate::{Layer, Neuron, f64_equal};
+    use crate::{Layer, Neuron, batch_equal, f64_equal, sample_equal};
 
     #[test]
     const fn a_single_neuron() {
@@ -78,12 +104,8 @@ mod tests {
         ]);
         let outputs = layer.forward_sample([1.0, 2.0, 3.0, 2.5]);
         let expected = [4.8, 1.21, 2.385];
-        let mut i = 0;
         assert!(outputs.len() == expected.len());
-        while i < outputs.len() {
-            assert!(f64_equal(outputs[i], expected[i]));
-            i += 1;
-        }
+        assert!(sample_equal(outputs, expected));
     }
 
     #[test]
@@ -99,10 +121,31 @@ mod tests {
             [-1.5, 2.7, 3.3, -0.8],
         ]);
         let expected = [[4.8, 1.21, 2.385], [8.9, -1.81, 0.2], [1.41, 1.051, 0.026]];
-        assert!(output.zip(expected).all(|(left, right)| {
-            left.into_iter()
-                .zip(right)
-                .all(|(left, right)| f64_equal(left, right))
-        }));
+        assert!(batch_equal(output, expected));
+    }
+
+    #[test]
+    fn second_layer() {
+        let layer = Layer::new([
+            Neuron::new([0.2, 0.8, -0.5, 1.0], 2.0),
+            Neuron::new([0.5, -0.91, 0.26, -0.5], 3.0),
+            Neuron::new([-0.26, -0.27, 0.17, 0.87], 0.5),
+        ]);
+        let layer2 = Layer::new([
+            Neuron::new([0.1, -0.14, 0.5], -1.0),
+            Neuron::new([-0.5, 0.12, -0.33], 2.0),
+            Neuron::new([-0.44, 0.73, -0.13], -0.5),
+        ]);
+        let output = layer2.forward_batch(layer.forward_batch([
+            [1.0, 2.0, 3.0, 2.5],
+            [2.0, 5.0, -1.0, 2.0],
+            [-1.5, 2.7, 3.3, -0.8],
+        ]));
+        let expected = [
+            [0.5031, -1.04185, -2.03875],
+            [0.2434, -2.7332, -5.7633],
+            [-0.99314, 1.41254, -0.35655],
+        ];
+        assert!(batch_equal(output, expected));
     }
 }
